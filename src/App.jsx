@@ -51,57 +51,71 @@ export default function TreKCTF() {
   const [clues, setClues] = useState(null);
   const [exploit, setExploit] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState("");
-  const [loadingPhase, setLoadingPhase] = useState(0);
+  const [loadingSteps, setLoadingSteps] = useState([]);
+  const [loadingTitle, setLoadingTitle] = useState("");
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [exploitMode, setExploitMode] = useState("bruteforce");
   const [copied, setCopied] = useState("");
   const fileRef = useRef();
-  const loadingTimer = useRef(null);
+  const loadingTimers = useRef([]);
 
-  const ANALYZE_MSGS = [
-    "Reading file bytes...",
-    "Examining file format...",
-    "Scanning for strings...",
-    "Identifying binary type...",
-    "Detecting input methods...",
-    "Mapping attack surface...",
-    "Consulting AI engine...",
-    "Processing results...",
-  ];
-  const CLUES_MSGS = [
-    "Analyzing vulnerability class...",
-    "Calculating input space...",
-    "Researching exploit techniques...",
-    "Mapping attack vectors...",
-    "Generating step-by-step plan...",
-    "Cross-referencing CVE patterns...",
-    "Crafting insight summary...",
-  ];
-  const EXPLOIT_MSGS = [
-    "Initializing exploit framework...",
-    "Checking pwntools compatibility...",
-    "Building bruteforce logic...",
-    "Generating charset table...",
-    "Writing flag detection routine...",
-    "Assembling Python script...",
-    "Optimizing loop structure...",
-    "Finalizing exploit code...",
-  ];
-
-  const startLoadingCycle = (msgs) => {
-    setLoadingPhase(0);
-    setLoadingMsg(msgs[0]);
-    let i = 1;
-    loadingTimer.current = setInterval(() => {
-      setLoadingMsg(msgs[i % msgs.length]);
-      i++;
-    }, 1800);
+  const PHASE_STEPS = {
+    analyze: [
+      { label: "Reading file bytes", ms: 0 },
+      { label: "Examining file format", ms: 1200 },
+      { label: "Scanning for embedded strings", ms: 2400 },
+      { label: "Identifying binary architecture", ms: 3800 },
+      { label: "Detecting input methods", ms: 5200 },
+      { label: "Mapping attack surface", ms: 6800 },
+      { label: "Sending to AI engine", ms: 8200 },
+      { label: "Processing AI response", ms: 12000 },
+    ],
+    clues: [
+      { label: "Parsing vulnerability class", ms: 0 },
+      { label: "Calculating input space", ms: 1400 },
+      { label: "Researching exploit techniques", ms: 3000 },
+      { label: "Mapping attack vectors", ms: 4800 },
+      { label: "Generating attack plan", ms: 6400 },
+      { label: "Cross-referencing CVE patterns", ms: 8000 },
+      { label: "Crafting insight summary", ms: 10000 },
+    ],
+    exploit: [
+      { label: "Initializing pwntools framework", ms: 0 },
+      { label: "Determining binary architecture", ms: 1200 },
+      { label: "Calculating stack offset", ms: 2800 },
+      { label: "Locating ROP gadgets", ms: 4400 },
+      { label: "Building payload structure", ms: 6200 },
+      { label: "Writing interaction logic", ms: 8000 },
+      { label: "Assembling final exploit", ms: 10000 },
+      { label: "Verifying script integrity", ms: 13000 },
+    ],
   };
 
-  const stopLoadingCycle = () => {
-    if (loadingTimer.current) clearInterval(loadingTimer.current);
+  const startLoadingSteps = (phase, title) => {
+    setLoadingTitle(title);
+    setLoadingSteps([]);
+    loadingTimers.current.forEach(clearTimeout);
+    loadingTimers.current = [];
+    const steps = PHASE_STEPS[phase];
+    steps.forEach((s, i) => {
+      const t = setTimeout(() => {
+        setLoadingSteps(prev => {
+          const next = [...prev];
+          // mark previous as done
+          if (i > 0) next[i-1] = { ...next[i-1], done: true };
+          next[i] = { label: s.label, active: true, done: false };
+          return next;
+        });
+      }, s.ms);
+      loadingTimers.current.push(t);
+    });
+  };
+
+  const stopLoadingSteps = () => {
+    loadingTimers.current.forEach(clearTimeout);
+    loadingTimers.current = [];
+    setLoadingSteps(prev => prev.map(s => ({ ...s, active: false, done: true })));
   };
 
   const handleFile = (f) => {
@@ -162,53 +176,85 @@ export default function TreKCTF() {
   const parseJSON = (raw) => JSON.parse(raw.replace(/```json|```/g, "").trim());
 
   const doAnalyze = async () => {
-    setLoading(true); setError(""); startLoadingCycle(ANALYZE_MSGS);
+    setLoading(true); setError(""); startLoadingSteps('analyze', 'Analyzing Binary');
     try {
       const raw = await readAsText(file);
       const resp = await callAI([{ role: "user", content: `Analyze this CTF challenge file for a security competition. Platform: ${platform}. Filename: "${file.name}". Size: ${file.size} bytes.\n\nFile sample (first 5000 chars, latin1):\n${raw.slice(0, 5000)}\n\nReturn ONLY valid JSON:\n{\n  "fileType": "string",\n  "description": "string (2 sentences)",\n  "inputMethod": "string (e.g. scanf %c, fgets, argv)",\n  "vulnerability": "string",\n  "flag_hint": "string",\n  "strings_found": ["array of notable strings"],\n  "difficulty": "easy|medium|hard",\n  "attack_surface": "string"\n}` }],
         "You are a CTF binary analysis expert. Return ONLY valid JSON, no markdown, no explanation.");
       setAnalysis(parseJSON(resp));
       setStep("analyze");
-    } catch (e) { setError("Analysis failed: " + e.message); } finally { stopLoadingCycle(); setLoading(false); }
+    } catch (e) { setError("Analysis failed: " + e.message); } finally { stopLoadingSteps(); setLoading(false); }
   };
 
   const doClues = async () => {
-    setLoading(true); setError(""); startLoadingCycle(CLUES_MSGS);
+    setLoading(true); setError(""); startLoadingSteps('clues', 'Generating Clues');
     try {
       const resp = await callAI([{ role: "user", content: `CTF analysis: ${JSON.stringify(analysis)}\nFile: "${file.name}", Platform: ${platform}\n\nReturn ONLY valid JSON:\n{\n  "clue_summary": "string",\n  "input_space": "string",\n  "attack_type": "string",\n  "steps": ["step array"],\n  "key_insight": "string",\n  "charset": "string",\n  "expected_flag_format": "string"\n}` }],
         "You are a CTF mentor. Return ONLY valid JSON.");
       setClues(parseJSON(resp));
       setStep("clues");
-    } catch (e) { setError("Clue generation failed: " + e.message); } finally { stopLoadingCycle(); setLoading(false); }
+    } catch (e) { setError("Clue generation failed: " + e.message); } finally { stopLoadingSteps(); setLoading(false); }
   };
 
   const doExploit = async () => {
-    setLoading(true); setError(""); startLoadingCycle(EXPLOIT_MSGS);
+    setLoading(true); setError(""); startLoadingSteps('exploit', 'Generating Exploit');
     try {
       const cleanKey = apiKey.replace(/[^\x20-\x7E]/g, "").trim();
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${cleanKey}`,
-          "HTTP-Referer": "https://raid6-khaki.vercel.app",
-          "X-Title": "TreK CTF Analyzer",
-        },
-        body: JSON.stringify({
-          model: "poolside/laguna-m.1:free",
-          max_tokens: 3000,
-          messages: [
-            { role: "system", content: "You are a CTF exploit developer. Return ONLY valid JSON, no markdown fences, no explanation outside JSON." },
-            { role: "user", content: `Generate a Python exploit for this CTF challenge.\nAnalysis: ${JSON.stringify(analysis)}\nClues: ${JSON.stringify(clues)}\nFile: "${file.name}", Mode: ${exploitMode}\n\nReturn ONLY valid JSON with these exact keys:\n{"script":"complete Python script as a single string with \\n for newlines","lookup_table":"Python dict string mapping 0-255 byte values to responses","usage":"how to run it","requirements":["pip packages"],"notes":"important notes"}` }
-          ],
-        }),
-      });
-      const data = await res.json();
+      const systemPrompt = `You are an expert CTF exploit developer specializing in pwntools. You write clean, production-grade Python exploit scripts. Return ONLY a valid JSON object — no markdown fences, no explanation, no text outside the JSON.`;
+      const userPrompt = `Generate a production-grade Python pwntools exploit for this CTF challenge.
+
+CHALLENGE DETAILS:
+- Filename: ${file.name}
+- Platform: ${platform}
+- Analysis: ${JSON.stringify(analysis)}
+- Clues: ${JSON.stringify(clues)}
+- Mode: ${exploitMode}
+
+STRICT ENGINEERING REQUIREMENTS:
+1. TOP OF SCRIPT: include local/remote toggle:
+   p = remote(args.HOST, int(args.PORT)) if args.REMOTE else process('./${file.name}')
+2. Set pwntools context: context.update(arch='DETECTED_ARCH', os='linux', endian='little')
+3. DO NOT brute-force offsets in loops. Hardcode or calculate the exact padding:
+   payload = b'A' * OFFSET + p64(ADDRESS)
+4. Use sendlineafter() with exact byte prompt matching
+5. End with p.interactive()
+6. If 64-bit and calling glibc functions, add ret gadget for 16-byte stack alignment
+7. Include all imports at the top (from pwn import *)
+8. Add inline comments explaining each step
+
+Return ONLY this JSON (no markdown, no extra text):
+{"script":"COMPLETE_PYTHON_SCRIPT_WITH_NEWLINES_AS_\\n","lookup_table":"PYTHON_DICT_OF_256_CHARS_OR_EMPTY_STRING","usage":"python3 exploit.py or python3 exploit.py REMOTE HOST=1.2.3.4 PORT=1337","requirements":["pwntools"],"notes":"KEY_NOTES_ABOUT_THE_EXPLOIT"}`;
+
+      const makeReq = async (model, maxTok) => {
+        const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${cleanKey}`,
+            "HTTP-Referer": "https://raid6-khaki.vercel.app",
+            "X-Title": "TreK CTF Analyzer",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: maxTok,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+          }),
+        });
+        return r.json();
+      };
+
+      let data = await makeReq("poolside/laguna-m.1:free", 3000);
+      if (data.error) {
+        data = await makeReq("openai/gpt-oss-120b:free", 3000);
+      }
       if (data.error) throw new Error(data.error.message);
       const raw = data.choices?.[0]?.message?.content || "";
       setExploit(parseJSON(raw));
       setStep("exploit");
-    } catch (e) { setError("Exploit generation failed: " + e.message); } finally { stopLoadingCycle(); setLoading(false); }
+    } catch (e) { setError("Exploit generation failed: " + e.message); } finally { stopLoadingSteps(); setLoading(false); }
   };
 
   const copy = (text, key) => {
@@ -592,24 +638,70 @@ export default function TreKCTF() {
         /* ── Loading ── */
         .overlay {
           position: fixed; inset: 0; z-index: 200;
-          background: rgba(255,255,255,0.85);
+          background: rgba(255,255,255,0.92);
           display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 18px;
-          backdrop-filter: blur(2px);
+          align-items: center; justify-content: center;
+          backdrop-filter: blur(3px);
+        }
+        .overlay-card {
+          background: #fff;
+          border: 1px solid #e5e5e5;
+          border-top: 3px solid #d00;
+          border-radius: 6px;
+          padding: 28px 32px;
+          width: 340px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+        .overlay-head {
+          display: flex; align-items: center; gap: 12px;
+          margin-bottom: 20px;
         }
         .spinner {
-          width: 40px; height: 40px;
-          border: 3px solid #f0c0c0;
+          width: 20px; height: 20px; flex-shrink: 0;
+          border: 2px solid #f0c0c0;
           border-top-color: #d00;
           border-radius: 50%;
           animation: spin 0.7s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .overlay-msg { font-size: 13px; font-weight: 500; color: #333; letter-spacing: 0.2px; }
-        .overlay-sub { font-size: 11px; color: #aaa; margin-top: 4px; }
-        .overlay-bar { width: 200px; height: 2px; background: #f0c0c0; border-radius: 1px; overflow: hidden; }
-        .overlay-bar-fill { height: 100%; background: #d00; border-radius: 1px; animation: barload 1.8s ease-in-out infinite; }
-        @keyframes barload { 0% { width: 0%; margin-left: 0; } 50% { width: 60%; } 100% { width: 0%; margin-left: 100%; } }
+        .overlay-title { font-size: 14px; font-weight: 700; color: #111; }
+        .overlay-steps { display: flex; flex-direction: column; gap: 8px; }
+        .overlay-step {
+          display: flex; align-items: center; gap: 10px;
+          font-size: 12px; color: #aaa;
+          transition: color 0.3s;
+        }
+        .overlay-step.active { color: #111; font-weight: 500; }
+        .overlay-step.done { color: #888; }
+        .step-icon {
+          width: 16px; height: 16px; flex-shrink: 0;
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 9px;
+          border: 1.5px solid #ddd;
+          color: transparent;
+        }
+        .overlay-step.active .step-icon {
+          border-color: #d00;
+          background: #fff0f0;
+          color: transparent;
+          position: relative;
+          overflow: hidden;
+        }
+        .overlay-step.active .step-icon::after {
+          content: '';
+          position: absolute;
+          inset: 2px;
+          border-radius: 50%;
+          border: 1.5px solid transparent;
+          border-top-color: #d00;
+          animation: spin 0.7s linear infinite;
+        }
+        .overlay-step.done .step-icon {
+          background: #d00; border-color: #d00; color: #fff; font-size: 9px;
+        }
+        .overlay-step.done .step-icon::before { content: "✓"; color: #fff; font-size: 9px; }
+        .overlay-footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f0f0f0; font-size: 10px; color: #bbb; letter-spacing: 0.5px; }
 
         /* ── Misc ── */
         .full-w { grid-column: 1 / -1; }
@@ -621,10 +713,21 @@ export default function TreKCTF() {
 
       {loading && (
         <div className="overlay">
-          <div className="spinner" />
-          <div className="overlay-msg">{loadingMsg}</div>
-          <div className="overlay-bar"><div className="overlay-bar-fill" /></div>
-          <div className="overlay-sub">TreK CTF Analyzer · AI Processing</div>
+          <div className="overlay-card">
+            <div className="overlay-head">
+              <div className="spinner" />
+              <div className="overlay-title">{loadingTitle}</div>
+            </div>
+            <div className="overlay-steps">
+              {loadingSteps.map((s, i) => (
+                <div key={i} className={`overlay-step ${s.done ? "done" : s.active ? "active" : ""}`}>
+                  <div className="step-icon" />
+                  <span>{s.label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="overlay-footer">TreK CTF Analyzer · AI Processing</div>
+          </div>
         </div>
       )}
 
