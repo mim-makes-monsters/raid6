@@ -893,49 +893,54 @@ Return ONLY this JSON (no markdown, no extra text):
             <div className="section">
               <div className="section-head">
                 <div className="section-title-text">Exploit Script — exploit.py</div>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  {exploit.arch && <span className="badge badge-medium">{exploit.arch?.toUpperCase()}</span>}
+                  {exploit.bits && <span className="badge badge-easy">{exploit.bits}-BIT</span>}
+                </div>
               </div>
               <div className="section-body">
+
                 <div className="info-grid">
-                  <Card label="Usage" value={exploit.usage} />
                   {exploit.notes && <Card label="Notes" value={exploit.notes} />}
+                  {exploit.usage && <Card label="Usage" value={exploit.usage} accent />}
                 </div>
 
                 {exploit.requirements?.length > 0 && (
                   <>
-                    <div className="form-label mb-4">Requirements</div>
+                    <div className="form-label mt-16 mb-4">Requirements</div>
                     <div className="req-row">
                       {exploit.requirements.map((r, i) => <span key={i} className="req-tag">pip install {r}</span>)}
                     </div>
                   </>
                 )}
 
-                <div className="form-label mt-16 mb-4">
-                  {exploitMode === "bruteforce" ? "Bruteforce Script" : "Lookup Table"}
-                </div>
-                <CodeBlock
-                  code={exploitMode === "lookup" && exploit.lookup_table ? exploit.lookup_table : exploit.script}
-                  copyKey="main"
-                  copied={copied}
-                  onCopy={copy}
-                />
+                <div className="form-label mt-16 mb-4">exploit.py</div>
+                <CodeBlock code={exploit.script} copyKey="script" copied={copied} onCopy={copy} />
 
                 {exploitMode === "lookup" && exploit.lookup_table && (
                   <>
-                    <div className="form-label mt-16 mb-4">Full Bruteforce Script</div>
-                    <CodeBlock code={exploit.script} copyKey="full" copied={copied} onCopy={copy} />
+                    <div className="form-label mt-16 mb-4">Lookup Table (256-char map)</div>
+                    <CodeBlock code={exploit.lookup_table} copyKey="lookup" copied={copied} onCopy={copy} />
                   </>
                 )}
 
-                <div className="terminal">
+                {/* Compilation & runtime hints */}
+                <div className="terminal" style={{marginTop:20}}>
                   <div className="terminal-bar">
                     <div className="t-dot t-red" /><div className="t-dot t-yellow" /><div className="t-dot t-green" />
+                    <span style={{marginLeft:8,fontSize:10,color:"#555"}}>quick reference</span>
                   </div>
                   <div className="terminal-lines">
-                    <div className="t-line t-comment"># run your exploit</div>
+                    <div className="t-line t-comment"># 1. install dependency</div>
                     <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> pip install pwntools</span></div>
+                    <div className="t-line t-comment"># 2. compile target (if you have source)</div>
+                    <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> {exploit.gcc_cmd || `gcc -fno-stack-protector -no-pie ${file?.name}.c -o ${file?.name}`}</span></div>
+                    <div className="t-line t-comment"># 3. run local</div>
                     <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> python3 exploit.py</span></div>
-                    <div className="t-line t-out">[*] Starting bruteforce against {file?.name}...</div>
-                    <div className="t-line t-out">[+] Flag found: HTB{"{ ... }"}</div>
+                    <div className="t-line t-comment"># 4. run remote</div>
+                    <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> python3 exploit.py REMOTE HOST=TARGET_IP PORT=TARGET_PORT</span></div>
+                    <div className="t-line t-out">[*] Switching to interactive mode</div>
+                    <div className="t-line t-out">[+] Flag: {`{...}`}</div>
                   </div>
                 </div>
 
