@@ -129,7 +129,7 @@ export default function TreKCTF() {
         "X-Title": "TreK CTF Analyzer",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-5",
+        model: "google/gemini-2.0-flash-exp:free",
         max_tokens: 1000,
         messages: [{ role: "system", content: system }, ...messages],
       }),
@@ -175,7 +175,7 @@ export default function TreKCTF() {
           "X-Title": "TreK CTF Analyzer",
         },
         body: JSON.stringify({
-          model: "anthropic/claude-sonnet-4-5",
+          model: "google/gemini-2.0-flash-exp:free",
           max_tokens: 3000,
           messages: [
             { role: "system", content: "You are a CTF exploit developer. Return ONLY valid JSON, no markdown fences, no explanation outside JSON." },
