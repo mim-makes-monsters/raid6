@@ -91,7 +91,6 @@ export default function TreKCTF() {
     if (data.error) throw new Error(data.error.message);
     return data.choices?.[0]?.message?.content || "";
   };
-  };
 
   const parseJSON = (raw) => JSON.parse(raw.replace(/```json|```/g, "").trim());
 
