@@ -129,12 +129,32 @@ export default function TreKCTF() {
         "X-Title": "TreK CTF Analyzer",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp:free",
+        model: "qwen/qwen3-coder-480b:free",
         max_tokens: 1000,
         messages: [{ role: "system", content: system }, ...messages],
       }),
     });
     const data = await res.json();
+    // fallback to DeepSeek R1 if rate limited
+    if (data.error?.code === 429 || data.error?.message?.includes("rate") || data.error?.message?.includes("endpoint")) {
+      const res2 = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${cleanKey}`,
+          "HTTP-Referer": "https://raid6-khaki.vercel.app",
+          "X-Title": "TreK CTF Analyzer",
+        },
+        body: JSON.stringify({
+          model: "deepseek/deepseek-r1:free",
+          max_tokens: 1000,
+          messages: [{ role: "system", content: system }, ...messages],
+        }),
+      });
+      const data2 = await res2.json();
+      if (data2.error) throw new Error(data2.error.message);
+      return data2.choices?.[0]?.message?.content || "";
+    }
     if (data.error) throw new Error(data.error.message);
     return data.choices?.[0]?.message?.content || "";
   };
@@ -175,7 +195,7 @@ export default function TreKCTF() {
           "X-Title": "TreK CTF Analyzer",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.0-flash-exp:free",
+          model: "qwen/qwen3-coder-480b:free",
           max_tokens: 3000,
           messages: [
             { role: "system", content: "You are a CTF exploit developer. Return ONLY valid JSON, no markdown fences, no explanation outside JSON." },
