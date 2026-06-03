@@ -73,21 +73,24 @@ export default function TreKCTF() {
   });
 
   const callAI = async (messages, system) => {
-    const headers = { "Content-Type": "application/json" };
-    if (apiKey) headers["x-api-key"] = apiKey;
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "TreK CTF Analyzer",
+      },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "anthropic/claude-sonnet-4-5",
         max_tokens: 1000,
-        system,
-        messages,
+        messages: [{ role: "system", content: system }, ...messages],
       }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
-    return data.content.find(b => b.type === "text")?.text || "";
+    return data.choices?.[0]?.message?.content || "";
+  };
   };
 
   const parseJSON = (raw) => JSON.parse(raw.replace(/```json|```/g, "").trim());
@@ -595,8 +598,8 @@ export default function TreKCTF() {
                   </select>
                 </div>
                 <div className="form-field">
-                  <label className="form-label">API Key <span style={{ color: "#bbb", fontWeight: 400 }}>(optional)</span></label>
-                  <input className="form-input" type="password" placeholder="sk-ant-... or leave blank" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                  <label className="form-label">OpenRouter API Key</label>
+                  <input className="form-input" type="password" placeholder="sk-or-... OpenRouter key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
                 </div>
                 <button className="btn btn-primary" style={{ marginTop: "auto" }} disabled={!file} onClick={doAnalyze}>
                   Analyze File →
