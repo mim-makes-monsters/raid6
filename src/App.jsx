@@ -129,7 +129,7 @@ export default function TreKCTF() {
         "X-Title": "TreK CTF Analyzer",
       },
       body: JSON.stringify({
-        model: "qwen/qwen3-coder-480b:free",
+        model: "poolside/laguna-m.1:free",
         max_tokens: 1000,
         messages: [{ role: "system", content: system }, ...messages],
       }),
@@ -146,7 +146,7 @@ export default function TreKCTF() {
           "X-Title": "TreK CTF Analyzer",
         },
         body: JSON.stringify({
-          model: "deepseek/deepseek-r1:free",
+          model: "openai/gpt-oss-120b:free",
           max_tokens: 1000,
           messages: [{ role: "system", content: system }, ...messages],
         }),
@@ -195,7 +195,7 @@ export default function TreKCTF() {
           "X-Title": "TreK CTF Analyzer",
         },
         body: JSON.stringify({
-          model: "qwen/qwen3-coder-480b:free",
+          model: "poolside/laguna-m.1:free",
           max_tokens: 3000,
           messages: [
             { role: "system", content: "You are a CTF exploit developer. Return ONLY valid JSON, no markdown fences, no explanation outside JSON." },
