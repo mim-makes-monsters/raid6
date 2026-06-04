@@ -75,7 +75,7 @@ TreK is constructed to actively target, deduce, and generate exploitation maps f
  * **Integer Multiplications & Underflows:** Evaluating allocation loops where sign-extension or integer truncation bypasses conditional array limit bounds checks.
  * **Heap Structure Corruption:** Mapping structural object arrays to identify adjacent function-pointer overwrite opportunities.
 ## 🤝 Authors & Contributors
-Developed with precision and a passion for cybersecurity automation.
+Developed with precision and passion.
  * **Project Lead:** **projectAdnan**
  * **Core Systems Architecture:** In collaboration with **MmM**
 ```
