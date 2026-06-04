@@ -19,11 +19,18 @@ function StepBar({ current }) {
   );
 }
 
+const CRITICAL_LABELS = ["vulnerability", "attack surface", "attack type"];
+const SLATE_LABELS = ["file type", "input method", "charset"];
+
 function Card({ label, value, accent }) {
+  const lk = label.toLowerCase();
+  const isCritical = CRITICAL_LABELS.some(l => lk.includes(l));
+  const isSlate = SLATE_LABELS.some(l => lk.includes(l));
+  const cls = isCritical ? "critical" : isSlate ? "slate" : accent ? "accent" : "";
   return (
     <div className="info-card">
       <div className="info-card-label">{label}</div>
-      <div className={`info-card-value ${accent ? "accent" : ""}`}>{value}</div>
+      <div className={`info-card-value ${cls}`}>{value}</div>
     </div>
   );
 }
@@ -46,7 +53,11 @@ export default function TreKCTF() {
   const [step, setStep] = useState("upload");
   const [file, setFile] = useState(null);
   const [platform, setPlatform] = useState("HackTheBox");
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("trek_active_key") || "");
+  const [savedKeys, setSavedKeys] = useState(() => { try { return JSON.parse(localStorage.getItem("trek_saved_keys") || "[]"); } catch { return []; } });
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [newKeyLabel, setNewKeyLabel] = useState("");
+  const [newKeyVal, setNewKeyVal] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [clues, setClues] = useState(null);
   const [exploit, setExploit] = useState(null);
@@ -59,6 +70,29 @@ export default function TreKCTF() {
   const [copied, setCopied] = useState("");
   const fileRef = useRef();
   const loadingTimers = useRef([]);
+
+  // persist active key
+  useEffect(() => { localStorage.setItem("trek_active_key", apiKey); }, [apiKey]);
+
+  const saveKey = () => {
+    if (!newKeyLabel.trim() || !newKeyVal.trim()) return;
+    const entry = { id: Date.now(), label: newKeyLabel.trim(), key: newKeyVal.trim() };
+    const updated = [...savedKeys, entry];
+    setSavedKeys(updated);
+    localStorage.setItem("trek_saved_keys", JSON.stringify(updated));
+    setNewKeyLabel(""); setNewKeyVal("");
+  };
+
+  const deleteKey = (id) => {
+    const updated = savedKeys.filter(k => k.id !== id);
+    setSavedKeys(updated);
+    localStorage.setItem("trek_saved_keys", JSON.stringify(updated));
+  };
+
+  const useKey = (k) => {
+    setApiKey(k.key);
+    setShowDashboard(false);
+  };
 
   const PHASE_STEPS = {
     analyze: [
@@ -311,7 +345,7 @@ Return ONLY this JSON (no markdown, no extra text):
         .logo-text { font-size: 17px; font-weight: 700; color: #111; letter-spacing: -0.3px; }
         .logo-text span { color: #d00; }
         .logo-sub { font-size: 11px; color: #888; font-weight: 400; margin-top: 1px; }
-        .header-right { font-size: 11px; color: #bbb; letter-spacing: 0.5px; }
+        .header-right { font-size: 11px; color: #666; letter-spacing: 0.5px; font-weight: 500; }
 
         /* ── Layout ── */
         .main { max-width: 880px; margin: 0 auto; padding: 40px 24px 80px; }
@@ -701,7 +735,7 @@ Return ONLY this JSON (no markdown, no extra text):
           background: #d00; border-color: #d00; color: #fff; font-size: 9px;
         }
         .overlay-step.done .step-icon::before { content: "✓"; color: #fff; font-size: 9px; }
-        .overlay-footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f0f0f0; font-size: 10px; color: #bbb; letter-spacing: 0.5px; }
+        .overlay-footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f0f0f0; font-size: 10px; color: #666; letter-spacing: 0.5px; font-weight: 500; }
 
         /* ── Misc ── */
         .full-w { grid-column: 1 / -1; }
@@ -709,6 +743,79 @@ Return ONLY this JSON (no markdown, no extra text):
         .mb-4 { margin-bottom: 4px; }
         .sec-sub { font-size: 12px; color: #888; margin-top: 2px; }
         .flex-between { display: flex; align-items: center; justify-content: space-between; }
+
+        /* ── Animations ── */
+        @keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .section { animation: slideUp 0.35s cubic-bezier(.22,.68,0,1.2) both; }
+        .section:nth-child(2) { animation-delay: 0.05s; }
+        .section:nth-child(3) { animation-delay: 0.1s; }
+        .section:nth-child(4) { animation-delay: 0.15s; }
+        .info-card { transition: box-shadow 0.2s, transform 0.2s; }
+        .info-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); transform: translateY(-1px); }
+        .btn { transition: all 0.18s cubic-bezier(.22,.68,0,1.2); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(204,0,0,0.25); }
+        .btn-primary:active { transform: translateY(0); }
+        .dropzone { transition: all 0.25s cubic-bezier(.22,.68,0,1.2); }
+        .dropzone.over { transform: scale(1.01); }
+        .step-badge { transition: background 0.2s; }
+        .saved-key-row { transition: background 0.15s; }
+        .saved-key-row:hover { background: #fafafa; }
+
+        /* ── Card value colors ── */
+        .info-card-value.critical { color: #b30000; font-weight: 600; }
+        .info-card-value.slate { color: #444; }
+        .info-card-value.accent { color: #d00; }
+
+        /* ── Key indicator ── */
+        .key-indicator { display:flex; align-items:center; gap:6px; font-size:11px; color:#666; font-weight:500; }
+        .key-dot { width:7px; height:7px; border-radius:50%; background:#22a722; display:inline-block; animation: pulse 2s infinite; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+          position:fixed; inset:0; z-index:300;
+          background:rgba(0,0,0,0.45);
+          display:flex; align-items:center; justify-content:center;
+          animation: fadeIn 0.2s ease;
+          padding: 20px;
+        }
+        .modal-card {
+          background:#fff;
+          border-radius:8px;
+          border-top:3px solid #d00;
+          width:100%; max-width:480px;
+          box-shadow:0 16px 48px rgba(0,0,0,0.18);
+          animation: slideUp 0.25s cubic-bezier(.22,.68,0,1.2);
+          overflow:hidden;
+        }
+        .modal-head {
+          display:flex; align-items:center; justify-content:space-between;
+          padding:16px 20px;
+          border-bottom:1px solid #f0f0f0;
+        }
+        .modal-title { font-size:15px; font-weight:700; color:#111; }
+        .modal-body { padding:20px; }
+        .modal-section-label { font-size:10px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; }
+        .active-key-box {
+          display:flex; align-items:center; gap:10px;
+          padding:10px 14px;
+          background:#fafafa; border:1px solid #eee; border-radius:5px;
+        }
+        .active-key-val { font-family:'JetBrains Mono',monospace; font-size:12px; color:#333; flex:1; }
+        .saved-keys-list { display:flex; flex-direction:column; gap:6px; }
+        .saved-key-row {
+          display:flex; align-items:center; justify-content:space-between;
+          padding:10px 14px;
+          border:1px solid #eee; border-radius:5px;
+        }
+        .saved-key-info { display:flex; flex-direction:column; gap:2px; }
+        .saved-key-label { font-size:13px; font-weight:600; color:#111; }
+        .saved-key-preview { font-family:'JetBrains Mono',monospace; font-size:10px; color:#888; }
+        .add-key-form { display:flex; gap:8px; flex-wrap:wrap; }
+        .add-key-form .form-input { height:36px; }
+        .modal-footer-note { font-size:11px; color:#999; margin-top:12px; line-height:1.5; }
       `}</style>
 
       {loading && (
@@ -741,8 +848,71 @@ Return ONLY this JSON (no markdown, no extra text):
               <div className="logo-sub">by projectAdnan</div>
             </div>
           </div>
-          <div className="header-right">AI-POWERED · CTF TOOLKIT</div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginLeft:"auto"}}>
+            {apiKey && <div className="key-indicator"><span className="key-dot" />API Active</div>}
+            <button className="btn btn-outline" style={{height:32,padding:"0 14px",fontSize:11}} onClick={() => setShowDashboard(true)}>
+              ⚙ API Keys
+            </button>
+          </div>
         </header>
+
+        {/* ── API KEY DASHBOARD ── */}
+        {showDashboard && (
+          <div className="modal-overlay" onClick={() => setShowDashboard(false)}>
+            <div className="modal-card" onClick={e => e.stopPropagation()}>
+              <div className="modal-head">
+                <div className="modal-title">API Key Dashboard</div>
+                <button className="icon-btn" onClick={() => setShowDashboard(false)}>✕</button>
+              </div>
+
+              <div className="modal-body">
+                {/* Active key display */}
+                <div className="modal-section-label">Active Key</div>
+                <div className="active-key-box">
+                  <span className="key-dot" style={{flexShrink:0}} />
+                  <span className="active-key-val">{apiKey ? `${apiKey.slice(0,8)}${"•".repeat(16)}` : "No key selected"}</span>
+                  {apiKey && <button className="icon-btn" style={{marginLeft:"auto",fontSize:11,color:"#d00"}} onClick={() => { setApiKey(""); localStorage.removeItem("trek_active_key"); }}>Clear</button>}
+                </div>
+
+                {/* Saved keys list */}
+                {savedKeys.length > 0 && (
+                  <>
+                    <div className="modal-section-label" style={{marginTop:16}}>Saved Keys</div>
+                    <div className="saved-keys-list">
+                      {savedKeys.map(k => (
+                        <div key={k.id} className="saved-key-row">
+                          <div className="saved-key-info">
+                            <span className="saved-key-label">{k.label}</span>
+                            <span className="saved-key-preview">{k.key.slice(0,8)}{"•".repeat(12)}</span>
+                          </div>
+                          <div style={{display:"flex",gap:6}}>
+                            <button className="btn btn-primary" style={{height:28,padding:"0 12px",fontSize:11}} onClick={() => useKey(k)}>Use</button>
+                            <button className="icon-btn" style={{color:"#d00"}} onClick={() => deleteKey(k.id)}>✕</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Add new key */}
+                <div className="modal-section-label" style={{marginTop:16}}>Add New Key</div>
+                <div className="add-key-form">
+                  <input className="form-input" style={{flex:1,minWidth:0}} placeholder="Label (e.g. My OpenRouter)" value={newKeyLabel} onChange={e => setNewKeyLabel(e.target.value)} />
+                  <input className="form-input" style={{flex:2,minWidth:0}} type="password" placeholder="sk-or-..." value={newKeyVal} onChange={e => setNewKeyVal(e.target.value)} />
+                  <button className="btn btn-primary" style={{flexShrink:0}} onClick={saveKey}>Save</button>
+                </div>
+
+                {/* Manual input */}
+                <div className="modal-section-label" style={{marginTop:16}}>Use Key Directly</div>
+                <div style={{display:"flex",gap:8}}>
+                  <input className="form-input" style={{flex:1}} type="password" placeholder="Paste key to use now..." value={apiKey} onChange={e => setApiKey(e.target.value)} />
+                </div>
+                <div className="modal-footer-note">Keys are stored in your browser only. Never sent to any server except OpenRouter.</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <main className="main">
           <StepBar current={step} />
@@ -789,7 +959,10 @@ Return ONLY this JSON (no markdown, no extra text):
                 </div>
                 <div className="form-field">
                   <label className="form-label">OpenRouter API Key</label>
-                  <input className="form-input" type="password" placeholder="sk-or-... OpenRouter key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                  <div style={{display:"flex",gap:6}}>
+                    <input className="form-input" style={{flex:1}} type="password" placeholder={apiKey ? "Key loaded ✓" : "sk-or-... or manage in ⚙"} value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                    <button className="btn btn-outline" style={{height:36,padding:"0 10px",fontSize:11,flexShrink:0}} onClick={() => setShowDashboard(true)}>⚙</button>
+                  </div>
                 </div>
                 <button className="btn btn-primary" style={{ marginTop: "auto" }} disabled={!file} onClick={doAnalyze}>
                   Analyze File →
@@ -870,7 +1043,8 @@ Return ONLY this JSON (no markdown, no extra text):
                     <div className="t-line t-comment"># quick reconnaissance</div>
                     <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> file ./{file?.name}</span></div>
                     <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> strings ./{file?.name} | grep -i flag</span></div>
-                    <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> chmod +x ./{file?.name} && python3 exploit.py</span></div>
+                    <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> checksec --file=./{file?.name}</span></div>
+                    <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> chmod +x exploit.py && python3 exploit.py</span></div>
                   </div>
                 </div>
 
