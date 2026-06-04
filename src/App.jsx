@@ -207,7 +207,42 @@ export default function TreKCTF() {
     return data.choices?.[0]?.message?.content || "";
   };
 
-  const parseJSON = (raw) => JSON.parse(raw.replace(/```json|```/g, "").trim());
+  const parseJSON = (raw) => {
+    // Step 1: strip markdown fences
+    let s = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/g, "").trim();
+
+    // Step 2: extract first {...} block in case model adds preamble
+    const start = s.indexOf("{");
+    const end = s.lastIndexOf("}");
+    if (start !== -1 && end !== -1) s = s.slice(start, end + 1);
+
+    // Step 3: sanitize control characters INSIDE JSON string values only
+    // Replace raw newlines/tabs/carriage returns inside string values with escaped versions
+    s = s.replace(
+      /"((?:[^"\\]|\\.)*)"/g,
+      (match) =>
+        match
+          .replace(/\n/g, "\\n")     // raw newline → \n
+          .replace(/\r/g, "\\r")     // raw CR → \r
+          .replace(/\t/g, "\\t")     // raw tab → \t
+          .replace(/[\x00-\x1F\x7F]/g, (c) => {
+            const hex = c.charCodeAt(0).toString(16).padStart(4, "0");
+            return `\\u${hex}`;
+          })
+    );
+
+    try {
+      return JSON.parse(s);
+    } catch (e) {
+      // Step 4: last resort — use Function constructor to eval as JS object literal
+      try {
+        // eslint-disable-next-line no-new-func
+        return Function('"use strict"; return (' + s + ')')();
+      } catch {
+        throw new Error("JSON parse failed: " + e.message);
+      }
+    }
+  };
 
   const doAnalyze = async () => {
     setLoading(true); setError(""); startLoadingSteps('analyze', 'Analyzing Binary');
@@ -1446,7 +1481,42 @@ export default function TreKCTF() {
     return data.choices?.[0]?.message?.content || "";
   };
 
-  const parseJSON = (raw) => JSON.parse(raw.replace(/```json|```/g, "").trim());
+  const parseJSON = (raw) => {
+    // Step 1: strip markdown fences
+    let s = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/g, "").trim();
+
+    // Step 2: extract first {...} block in case model adds preamble
+    const start = s.indexOf("{");
+    const end = s.lastIndexOf("}");
+    if (start !== -1 && end !== -1) s = s.slice(start, end + 1);
+
+    // Step 3: sanitize control characters INSIDE JSON string values only
+    // Replace raw newlines/tabs/carriage returns inside string values with escaped versions
+    s = s.replace(
+      /"((?:[^"\\]|\\.)*)"/g,
+      (match) =>
+        match
+          .replace(/\n/g, "\\n")     // raw newline → \n
+          .replace(/\r/g, "\\r")     // raw CR → \r
+          .replace(/\t/g, "\\t")     // raw tab → \t
+          .replace(/[\x00-\x1F\x7F]/g, (c) => {
+            const hex = c.charCodeAt(0).toString(16).padStart(4, "0");
+            return `\\u${hex}`;
+          })
+    );
+
+    try {
+      return JSON.parse(s);
+    } catch (e) {
+      // Step 4: last resort — use Function constructor to eval as JS object literal
+      try {
+        // eslint-disable-next-line no-new-func
+        return Function('"use strict"; return (' + s + ')')();
+      } catch {
+        throw new Error("JSON parse failed: " + e.message);
+      }
+    }
+  };
 
   const doAnalyze = async () => {
     setLoading(true); setError(""); startLoadingSteps('analyze', 'Analyzing Binary');
