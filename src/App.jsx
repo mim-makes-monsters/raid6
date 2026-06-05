@@ -170,7 +170,16 @@ export default function TreKCTF() {
         .replace(/\t/g, "\\t")
         .replace(/[\x00-\x1F\x7F]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"))
     );
-    try { return JSON.parse(s); } catch (e) { throw new Error("JSON parse failed: " + e.message); }
+    try { return JSON.parse(s); } catch (e) {
+      // Try to recover truncated JSON by closing open braces
+      try {
+        let fixed = s;
+        const opens = (fixed.match(/{/g) || []).length;
+        const closes = (fixed.match(/}/g) || []).length;
+        for (let i = 0; i < opens - closes; i++) fixed += "}";
+        return JSON.parse(fixed);
+      } catch { throw new Error("JSON parse failed: " + e.message); }
+    }
   };
 
   const cleanKey = () => apiKey.replace(/[^\x20-\x7E]/g, "").trim();
@@ -232,7 +241,7 @@ export default function TreKCTF() {
         })
       ].join("\n");
       const resp = await callAI([{ role: "user", content: prompt }],
-        "You are a CTF binary analysis expert. Return ONLY valid JSON, no markdown, no explanation.", 1200);
+        "You are a CTF binary analysis expert. Return ONLY valid JSON, no markdown, no explanation.", 1800);
       setAnalysis(parseJSON(resp));
       setStep("analyze");
     } catch (e) { setError("Analysis failed: " + e.message); } finally { stopLoadingSteps(); setLoading(false); }
@@ -264,7 +273,7 @@ export default function TreKCTF() {
         })
       ].join("\n");
       const resp = await callAI([{ role: "user", content: prompt }],
-        "You are a CTF mentor. Return ONLY valid JSON.", 1000);
+        "You are a CTF mentor. Return ONLY valid JSON. Keep all values concise.", 1800);
       setClues(parseJSON(resp));
       setStep("clues");
     } catch (e) { setError("Clue generation failed: " + e.message); } finally { stopLoadingSteps(); setLoading(false); }
