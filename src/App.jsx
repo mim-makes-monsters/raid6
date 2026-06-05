@@ -54,6 +54,9 @@ export default function TreKCTF() {
   const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem("trek_active_key") || ""; } catch { return ""; } });
   const [savedKeys, setSavedKeys] = useState(() => { try { return JSON.parse(localStorage.getItem("trek_saved_keys") || "[]"); } catch { return []; } });
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showWorkflow, setShowWorkflow] = useState(false);
+  const [remoteHost, setRemoteHost] = useState("");
+  const [remotePort, setRemotePort] = useState("");
   const [newKeyLabel, setNewKeyLabel] = useState("");
   const [newKeyVal, setNewKeyVal] = useState("");
   const [analysis, setAnalysis] = useState(null);
@@ -573,6 +576,34 @@ export default function TreKCTF() {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Replit Banner */
+        .replit-banner { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px; background:linear-gradient(135deg,#0d1117,#1a1a2e); border-radius:6px; margin-top:16px; flex-wrap:wrap; }
+        .replit-left { display:flex; align-items:center; gap:12px; }
+        .replit-icon { width:36px; height:36px; background:#f26207; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; flex-shrink:0; }
+        .replit-title { font-size:13px; font-weight:700; color:#fff; }
+        .replit-sub { font-size:11px; color:#888; margin-top:2px; }
+        .btn-replit { background:#f26207; color:#fff; border-color:#f26207; height:36px; padding:0 16px; font-size:12px; font-weight:700; border-radius:4px; cursor:pointer; border:none; font-family:'Inter',sans-serif; transition:all 0.18s; white-space:nowrap; }
+        .btn-replit:hover { background:#d4550a; transform:translateY(-1px); box-shadow:0 4px 12px rgba(242,98,7,0.35); }
+
+        /* Workflow */
+        .workflow-section { margin-top:16px; border:1px solid #e5e5e5; border-radius:6px; overflow:hidden; }
+        .workflow-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:#fafafa; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:#111; transition:background 0.15s; }
+        .workflow-toggle:hover { background:#f5f5f5; }
+        .workflow-body { padding:16px; border-top:1px solid #f0f0f0; display:flex; flex-direction:column; gap:10px; }
+        .workflow-intro { font-size:12px; color:#666; line-height:1.6; padding:10px 14px; background:#f9f9f9; border-radius:4px; }
+        .workflow-step-card { display:flex; gap:14px; padding:14px; border:1px solid #efefef; border-radius:5px; background:#fff; animation:slideUp 0.25s ease both; }
+        .workflow-flag-card { border-color:#c8e6c9; background:#f1fff1; }
+        .ws-num { width:28px; height:28px; flex-shrink:0; background:#d00; color:#fff; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; margin-top:1px; }
+        .ws-content { flex:1; min-width:0; }
+        .ws-title { font-size:13px; font-weight:600; color:#111; margin-bottom:4px; }
+        .ws-desc { font-size:12px; color:#555; line-height:1.6; }
+        .ws-cmd-row { display:flex; align-items:center; gap:8px; margin-top:8px; background:#f5f5f5; border:1px solid #e5e5e5; border-radius:4px; padding:8px 10px; overflow-x:auto; }
+        .ws-cmd { font-family:'JetBrains Mono',monospace; font-size:11px; color:#1a1a2e; flex:1; white-space:nowrap; background:none; border:none; }
+        .ws-copy { flex-shrink:0; font-family:'Inter',sans-serif; font-size:10px; font-weight:600; background:#fff; border:1px solid #ddd; border-radius:3px; padding:2px 8px; cursor:pointer; color:#555; transition:all 0.15s; }
+        .ws-copy:hover { background:#d00; color:#fff; border-color:#d00; }
+        .ws-check { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+        .ws-check-item { font-size:12px; color:#333; background:#f5f5f5; padding:4px 10px; border-radius:4px; border:1px solid #e5e5e5; }
         .section:nth-child(1) { animation-delay: 0s; }
         .section:nth-child(2) { animation-delay: 0.05s; }
         .section:nth-child(3) { animation-delay: 0.1s; }
@@ -872,6 +903,142 @@ export default function TreKCTF() {
                     <div className="t-line"><span className="t-prompt">$</span><span className="t-cmd"> python3 exploit.py REMOTE HOST=TARGET_IP PORT=TARGET_PORT</span></div>
                     <div className="t-line t-out">[+] Flag: {"{ ... }"}</div>
                   </div>
+                </div>
+
+                {/* Run on Replit */}
+                <div className="replit-banner">
+                  <div className="replit-left">
+                    <div className="replit-icon">▶</div>
+                    <div>
+                      <div className="replit-title">Run on Replit</div>
+                      <div className="replit-sub">Opens a free cloud IDE with your exploit pre-loaded. No install needed.</div>
+                    </div>
+                  </div>
+                  <button className="btn btn-replit" onClick={() => {
+                    const code = encodeURIComponent(exploit.script || "");
+                    const url = "https://replit.com/new/python3?code=" + code;
+                    window.open(url, "_blank");
+                  }}>Open in Replit →</button>
+                </div>
+
+                {/* Workflow Panel */}
+                <div className="workflow-section">
+                  <button className="workflow-toggle" onClick={() => setShowWorkflow(v => !v)}>
+                    <span>📋 Step-by-Step Local Execution Workflow</span>
+                    <span>{showWorkflow ? "▲" : "▼"}</span>
+                  </button>
+                  {showWorkflow && (
+                    <div className="workflow-body">
+                      <div className="workflow-intro">
+                        Follow this workflow on your local machine to capture the flag.
+                        All commands are copy-ready.
+                      </div>
+
+                      {/* Remote target input */}
+                      <div className="workflow-step-card">
+                        <div className="ws-num">0</div>
+                        <div className="ws-content">
+                          <div className="ws-title">Optional: Set Remote Target</div>
+                          <div className="ws-desc">If this is a remote challenge (HTB/THM machine), enter IP and port below. Leave blank for local testing.</div>
+                          <div style={{display:"flex", gap:8, marginTop:10, flexWrap:"wrap"}}>
+                            <input className="form-input" style={{width:160}} placeholder="Target IP" value={remoteHost} onChange={e => setRemoteHost(e.target.value)} />
+                            <input className="form-input" style={{width:90}} placeholder="Port" value={remotePort} onChange={e => setRemotePort(e.target.value)} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="workflow-step-card">
+                        <div className="ws-num">1</div>
+                        <div className="ws-content">
+                          <div className="ws-title">Open Your IDE</div>
+                          <div className="ws-desc">Open VS Code, PyCharm, or any terminal. Create a working folder for this challenge.</div>
+                          <div className="ws-cmd-row">
+                            <code className="ws-cmd">mkdir ctf-{file?.name?.replace(/\./g,"-")} && cd ctf-{file?.name?.replace(/\./g,"-")}</code>
+                            <button className="ws-copy" onClick={() => copy("mkdir ctf-" + (file?.name||"").replace(/\./g,"-") + " && cd ctf-" + (file?.name||"").replace(/\./g,"-"), "wf1")}>{copied==="wf1"?"✓":"Copy"}</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="workflow-step-card">
+                        <div className="ws-num">2</div>
+                        <div className="ws-content">
+                          <div className="ws-title">Place Your Files</div>
+                          <div className="ws-desc">Copy <strong>{file?.name}</strong> into the folder. Download exploit.py using the button above and place it in the same folder.</div>
+                          <div className="ws-check">
+                            <span className="ws-check-item">📁 {file?.name}</span>
+                            <span className="ws-check-item">🐍 exploit.py</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="workflow-step-card">
+                        <div className="ws-num">3</div>
+                        <div className="ws-content">
+                          <div className="ws-title">Install Dependencies</div>
+                          <div className="ws-cmd-row">
+                            <code className="ws-cmd">pip install pwntools</code>
+                            <button className="ws-copy" onClick={() => copy("pip install pwntools", "wf3")}>{copied==="wf3"?"✓":"Copy"}</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {exploit.gcc_cmd && (
+                        <div className="workflow-step-card">
+                          <div className="ws-num">4</div>
+                          <div className="ws-content">
+                            <div className="ws-title">Compile Binary (if source provided)</div>
+                            <div className="ws-desc">Only needed if you have the .c source file.</div>
+                            <div className="ws-cmd-row">
+                              <code className="ws-cmd">{exploit.gcc_cmd}</code>
+                              <button className="ws-copy" onClick={() => copy(exploit.gcc_cmd, "wf4")}>{copied==="wf4"?"✓":"Copy"}</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="workflow-step-card">
+                        <div className="ws-num">{exploit.gcc_cmd ? "5" : "4"}</div>
+                        <div className="ws-content">
+                          <div className="ws-title">Inspect the Binary</div>
+                          <div className="ws-desc">Verify protections and strings match what the analyzer found.</div>
+                          <div className="ws-cmd-row"><code className="ws-cmd">file ./{file?.name}</code><button className="ws-copy" onClick={() => copy("file ./" + file?.name, "wf5a")}>{copied==="wf5a"?"✓":"Copy"}</button></div>
+                          <div className="ws-cmd-row" style={{marginTop:6}}><code className="ws-cmd">checksec --file=./{file?.name}</code><button className="ws-copy" onClick={() => copy("checksec --file=./" + file?.name, "wf5b")}>{copied==="wf5b"?"✓":"Copy"}</button></div>
+                          <div className="ws-cmd-row" style={{marginTop:6}}><code className="ws-cmd">strings ./{file?.name} | grep -i flag</code><button className="ws-copy" onClick={() => copy("strings ./" + file?.name + " | grep -i flag", "wf5c")}>{copied==="wf5c"?"✓":"Copy"}</button></div>
+                        </div>
+                      </div>
+
+                      <div className="workflow-step-card">
+                        <div className="ws-num">{exploit.gcc_cmd ? "6" : "5"}</div>
+                        <div className="ws-content">
+                          <div className="ws-title">{remoteHost ? "Run Exploit Against Remote Target" : "Run Exploit Locally"}</div>
+                          <div className="ws-desc">{remoteHost ? "Attacking " + remoteHost + ":" + (remotePort||"????") : "Test against local binary first, then switch to remote."}</div>
+                          <div className="ws-cmd-row">
+                            <code className="ws-cmd">{remoteHost ? "python3 exploit.py REMOTE HOST=" + remoteHost + " PORT=" + (remotePort||"PORT") : "python3 exploit.py"}</code>
+                            <button className="ws-copy" onClick={() => copy(remoteHost ? "python3 exploit.py REMOTE HOST=" + remoteHost + " PORT=" + (remotePort||"PORT") : "python3 exploit.py", "wf6")}>{copied==="wf6"?"✓":"Copy"}</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="workflow-step-card workflow-flag-card">
+                        <div className="ws-num" style={{background:"#1a8a1a"}}>🚩</div>
+                        <div className="ws-content">
+                          <div className="ws-title">Expected Flag</div>
+                          <div className="ws-desc">
+                            Look for output matching: <strong style={{color:"#1a8a1a"}}>{clues?.expected_flag_format || "CTF{...}"}</strong>
+                          </div>
+                          <div className="ws-desc" style={{marginTop:6}}>
+                            Vulnerability exploited: <span style={{color:"#b30000", fontWeight:600}}>{analysis?.vulnerability}</span>
+                          </div>
+                          {clues?.overflow_value && (
+                            <div className="ws-desc" style={{marginTop:6}}>
+                              Overflow trigger value: <code style={{background:"#f0fff0", padding:"1px 6px", borderRadius:3, color:"#060"}}>{clues.overflow_value}</code>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
                 </div>
 
                 <div className="action-row">
