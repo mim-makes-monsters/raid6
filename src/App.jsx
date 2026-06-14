@@ -173,32 +173,39 @@ export default function App() {
   const mk = () => apiKey.replace(/[^\x20-\x7E]/g,"").trim();
 
   const callAI = async (messages, system, maxTok=1800) => {
-    const sysPrompt = system + " You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no code fences, no text before or after. Start your response with { and end with }.";
-    const req = async model => {
-      try {
-        const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
-          method:"POST",
-          headers:{"Content-Type":"application/json","Authorization":"Bearer "+mk(),"HTTP-Referer":"https://raid6-khaki.vercel.app","X-Title":"codeXcracked"},
-          body:JSON.stringify({model,max_tokens:maxTok,messages:[{role:"system",content:sysPrompt},...messages]}),
-        });
-        const j = await r.json();
-        return j;
-      } catch(e) { return {error:{message:e.message}}; }
-    };
-    // Try models in order, skip on error or empty content
+    const key = mk();
+    if (!key) throw new Error("No API key set. Click ⚙ to add your OpenRouter key.");
+    const sysPrompt = system + " Respond with ONLY a JSON object. Start with { end with }. No markdown.";
     const MODELS = [
       "meta-llama/llama-3.3-70b-instruct:free",
       "google/gemma-3-27b-it:free",
       "mistralai/mistral-7b-instruct:free",
-      "poolside/laguna-m.1:free",
     ];
     let lastErr = "All models failed";
     for (const model of MODELS) {
-      const d = await req(model);
-      if (d.error) { lastErr = d.error.message; continue; }
-      const txt = d.choices?.[0]?.message?.content || "";
-      if (txt && txt.includes("{")) return txt;
-      lastErr = "Model returned no JSON: " + txt.slice(0,80);
+      let resp, txt;
+      try {
+        const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key,
+            "HTTP-Referer": "https://raid6-khaki.vercel.app",
+            "X-Title": "codeXcracked",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: maxTok,
+            messages: [{ role: "system", content: sysPrompt }, ...messages],
+          }),
+        });
+        if (!r.ok) { lastErr = "HTTP " + r.status + " from " + model; continue; }
+        resp = await r.json();
+      } catch (e) { lastErr = "Fetch error: " + e.message; continue; }
+      if (resp.error) { lastErr = resp.error.message || JSON.stringify(resp.error); continue; }
+      txt = resp.choices?.[0]?.message?.content || "";
+      if (txt.includes("{")) return txt;
+      lastErr = "No JSON from " + model + ": " + txt.slice(0, 60);
     }
     throw new Error(lastErr);
   };
@@ -209,7 +216,7 @@ export default function App() {
       const raw = await readAsText(file);
       const prompt = [
         "Analyze this CTF challenge file. Platform: "+platform+". Filename: "+file.name+". Size: "+file.size+" bytes.",
-        "File sample (first 5000 chars):\n"+raw.slice(0,5000),
+        "File sample (first 2000 chars, printable only):\n"+raw.slice(0,2000).replace(/[^\x20-\x7E\n]/g," "),
         "CRITICAL: Extract EXACT literal strings the binary prints before waiting for input. NEVER invent placeholders.",
         "Return ONLY valid JSON:\n"+JSON.stringify({
           fileType:"string",description:"2 sentences",inputMethod:"e.g. scanf %c",
