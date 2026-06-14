@@ -177,9 +177,10 @@ export default function App() {
     if (!key) throw new Error("No API key set. Click ⚙ to add your OpenRouter key.");
     const sysPrompt = system + " Respond with ONLY a JSON object. Start with { end with }. No markdown.";
     const MODELS = [
+      "google/gemma-3-12b-it:free",
       "meta-llama/llama-3.3-70b-instruct:free",
-      "google/gemma-3-27b-it:free",
-      "mistralai/mistral-7b-instruct:free",
+      "qwen/qwen-2.5-7b-instruct:free",
+      "deepseek/deepseek-r1:free",
     ];
     let lastErr = "All models failed";
     for (const model of MODELS) {
@@ -286,10 +287,10 @@ export default function App() {
         } catch(e) { return {error:{message:e.message}}; }
       };
       const EX_MODELS = [
+        "google/gemma-3-12b-it:free",
         "meta-llama/llama-3.3-70b-instruct:free",
-        "google/gemma-3-27b-it:free",
-        "mistralai/mistral-7b-instruct:free",
-        "poolside/laguna-m.1:free",
+        "qwen/qwen-2.5-7b-instruct:free",
+        "deepseek/deepseek-r1:free",
       ];
       let d = null, lastErrEx = "All exploit models failed";
       for (const model of EX_MODELS) {
