@@ -173,19 +173,34 @@ export default function App() {
   const mk = () => apiKey.replace(/[^\x20-\x7E]/g,"").trim();
 
   const callAI = async (messages, system, maxTok=1800) => {
+    const sysPrompt = system + " You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no code fences, no text before or after. Start your response with { and end with }.";
     const req = async model => {
-      const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","Authorization":"Bearer "+mk(),"HTTP-Referer":"https://raid6-khaki.vercel.app","X-Title":"codeXcracked"},
-        body:JSON.stringify({model,max_tokens:maxTok,messages:[{role:"system",content:system+" Return ONLY a raw JSON object, no markdown, no preamble, no thinking tags."},...messages]}),
-      });
-      return r.json();
+      try {
+        const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+mk(),"HTTP-Referer":"https://raid6-khaki.vercel.app","X-Title":"codeXcracked"},
+          body:JSON.stringify({model,max_tokens:maxTok,messages:[{role:"system",content:sysPrompt},...messages]}),
+        });
+        const j = await r.json();
+        return j;
+      } catch(e) { return {error:{message:e.message}}; }
     };
-    let d = await req("openrouter/free");
-    if(d.error) d = await req("nvidia/llama-3.1-nemotron-ultra-253b-v1:free");
-    if(d.error) d = await req("poolside/laguna-m.1:free");
-    if(d.error) throw new Error(d.error.message);
-    return d.choices?.[0]?.message?.content||"";
+    // Try models in order, skip on error or empty content
+    const MODELS = [
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "google/gemma-3-27b-it:free",
+      "mistralai/mistral-7b-instruct:free",
+      "poolside/laguna-m.1:free",
+    ];
+    let lastErr = "All models failed";
+    for (const model of MODELS) {
+      const d = await req(model);
+      if (d.error) { lastErr = d.error.message; continue; }
+      const txt = d.choices?.[0]?.message?.content || "";
+      if (txt && txt.includes("{")) return txt;
+      lastErr = "Model returned no JSON: " + txt.slice(0,80);
+    }
+    throw new Error(lastErr);
   };
 
   const doAnalyze = async () => {
@@ -252,18 +267,32 @@ export default function App() {
         "Return ONLY JSON: {\"script\":\"...\",\"lookup_table\":\"...\",\"usage\":\"...\",\"requirements\":[\"pwntools\"],\"notes\":\"...\",\"arch\":\""+arch+"\",\"bits\":"+bits+",\"gcc_cmd\":\"gcc -fno-stack-protector -no-pie"+gccFlag+" "+fname+".c -o "+fname+"\"}"
       ].filter(Boolean).join("\n");
       const sys = "You are an elite CTF exploit engineer. NEVER invent prompt strings. Use ONLY exact strings from analysis.input_prompts. Return ONLY valid JSON, no markdown.";
-      const req = async model => {
-        const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
-          method:"POST",
-          headers:{"Content-Type":"application/json","Authorization":"Bearer "+k,"HTTP-Referer":"https://raid6-khaki.vercel.app","X-Title":"codeXcracked"},
-          body:JSON.stringify({model,max_tokens:3000,messages:[{role:"system",content:sys+" Return ONLY a raw JSON object, no markdown, no preamble, no thinking tags."},{role:"user",content:promptLines}]}),
-        });
-        return r.json();
+      const sysEx = sys + " You MUST respond with ONLY a valid JSON object. Start with { end with }. No markdown, no fences, no text outside JSON.";
+      const reqEx = async model => {
+        try {
+          const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","Authorization":"Bearer "+k,"HTTP-Referer":"https://raid6-khaki.vercel.app","X-Title":"codeXcracked"},
+            body:JSON.stringify({model,max_tokens:3000,messages:[{role:"system",content:sysEx},{role:"user",content:promptLines}]}),
+          });
+          return r.json();
+        } catch(e) { return {error:{message:e.message}}; }
       };
-      let d = await req("openrouter/free");
-      if(d.error) d = await req("nvidia/llama-3.1-nemotron-ultra-253b-v1:free");
-      if(d.error) d = await req("poolside/laguna-m.1:free");
-      if(d.error) throw new Error(d.error.message);
+      const EX_MODELS = [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemma-3-27b-it:free",
+        "mistralai/mistral-7b-instruct:free",
+        "poolside/laguna-m.1:free",
+      ];
+      let d = null, lastErrEx = "All exploit models failed";
+      for (const model of EX_MODELS) {
+        const r = await reqEx(model);
+        if (r.error) { lastErrEx = r.error.message; continue; }
+        const txt = r.choices?.[0]?.message?.content || "";
+        if (txt && txt.includes("{")) { d = {choices:[{message:{content:txt}}]}; break; }
+        lastErrEx = "No JSON from " + model;
+      }
+      if (!d) throw new Error(lastErrEx);
       setExploit(parseJSON(d.choices?.[0]?.message?.content||""));
       setStep("exploit");
     } catch(e){ setError("Exploit generation failed: "+e.message); } finally{ stopLoad(); setLoading(false); }
