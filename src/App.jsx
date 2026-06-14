@@ -140,24 +140,36 @@ export default function App() {
   });
 
   const parseJSON = raw => {
-    let s = raw.replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/g,"").trim();
-    const st=s.indexOf("{"), en=s.lastIndexOf("}");
-    if(st!==-1&&en!==-1) s=s.slice(st,en+1);
-    s=s.replace(/"((?:[^"\\]|\\.)*)"/g, m=>
-      m.replace(/\n/g,"\\n").replace(/\r/g,"\\r").replace(/\t/g,"\\t")
-       .replace(/[\x00-\x1F\x7F]/g,c=>"\\u"+c.charCodeAt(0).toString(16).padStart(4,"0"))
-    );
-    try{ return JSON.parse(s); }
-    catch(e){
-      try{
-        let fx=s;
-        const op=(fx.match(/\{/g)||[]).length, cl=(fx.match(/\}/g)||[]).length;
-        for(let i=0;i<op-cl;i++) fx+="}";
+    if (!raw || typeof raw !== "string") throw new Error("Empty AI response");
+    let s = raw;
+    // Remove thinking blocks
+    s = s.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
+    // Remove markdown fences
+    s = s.replace(/```json/gi, "").replace(/```/g, "").trim();
+    // Find outermost JSON object
+    const st = s.indexOf("{"), en = s.lastIndexOf("}");
+    if (st === -1 || en <= st) throw new Error("No JSON in response");
+    s = s.slice(st, en + 1);
+    // Remove literal newlines/tabs inside the JSON string (safe to do before parse)
+    s = s.split("").map(c => {
+      const code = c.charCodeAt(0);
+      if (code === 10) return "\\n";
+      if (code === 13) return "\\r";
+      if (code === 9)  return "\\t";
+      if (code < 32)   return "";
+      return c;
+    }).join("");
+    try { return JSON.parse(s); }
+    catch (e1) {
+      try {
+        let fx = s;
+        const op = (fx.match(/\{/g)||[]).length;
+        const cl = (fx.match(/\}/g)||[]).length;
+        for (let i = 0; i < op - cl; i++) fx += "}";
         return JSON.parse(fx);
-      } catch{ throw new Error("JSON parse failed: "+e.message); }
+      } catch { throw new Error("Parse failed: " + e1.message); }
     }
-  };
-
+  }
   const mk = () => apiKey.replace(/[^\x20-\x7E]/g,"").trim();
 
   const callAI = async (messages, system, maxTok=1800) => {
@@ -165,7 +177,7 @@ export default function App() {
       const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":"Bearer "+mk(),"HTTP-Referer":"https://raid6-khaki.vercel.app","X-Title":"codeXcracked"},
-        body:JSON.stringify({model,max_tokens:maxTok,messages:[{role:"system",content:system},...messages]}),
+        body:JSON.stringify({model,max_tokens:maxTok,messages:[{role:"system",content:system+" Return ONLY a raw JSON object, no markdown, no preamble, no thinking tags."},...messages]}),
       });
       return r.json();
     };
@@ -244,7 +256,7 @@ export default function App() {
         const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
           method:"POST",
           headers:{"Content-Type":"application/json","Authorization":"Bearer "+k,"HTTP-Referer":"https://raid6-khaki.vercel.app","X-Title":"codeXcracked"},
-          body:JSON.stringify({model,max_tokens:3000,messages:[{role:"system",content:sys},{role:"user",content:promptLines}]}),
+          body:JSON.stringify({model,max_tokens:3000,messages:[{role:"system",content:sys+" Return ONLY a raw JSON object, no markdown, no preamble, no thinking tags."},{role:"user",content:promptLines}]}),
         });
         return r.json();
       };
