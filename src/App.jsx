@@ -169,8 +169,9 @@ export default function App() {
       });
       return r.json();
     };
-    let d = await req("poolside/laguna-m.1:free");
-    if(d.error) d = await req("openai/gpt-oss-120b:free");
+    let d = await req("openrouter/free");
+    if(d.error) d = await req("nvidia/llama-3.1-nemotron-ultra-253b-v1:free");
+    if(d.error) d = await req("poolside/laguna-m.1:free");
     if(d.error) throw new Error(d.error.message);
     return d.choices?.[0]?.message?.content||"";
   };
@@ -247,8 +248,9 @@ export default function App() {
         });
         return r.json();
       };
-      let d = await req("poolside/laguna-m.1:free");
-      if(d.error) d = await req("openai/gpt-oss-120b:free");
+      let d = await req("openrouter/free");
+      if(d.error) d = await req("nvidia/llama-3.1-nemotron-ultra-253b-v1:free");
+      if(d.error) d = await req("poolside/laguna-m.1:free");
       if(d.error) throw new Error(d.error.message);
       setExploit(parseJSON(d.choices?.[0]?.message?.content||""));
       setStep("exploit");
